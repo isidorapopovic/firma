@@ -1,0 +1,90 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Firma Web App</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body data-page="home">
+    <div class="container">
+        <header class="topbar">
+            <div class="brand">
+                <span class="dot"></span>
+                <span>Firma</span>
+            </div>
+            <nav class="nav">
+                <a href="/" data-nav="home" class="active">Home</a>
+                <a href="/overview" data-nav="overview">Overview</a>
+                <a href="/kpi" data-nav="kpi">KPI</a>
+                <a href="/transactions" data-nav="transactions">Transactions</a>
+                <a href="/automation" data-nav="automation">Automation</a>
+            </nav>
+        </header>
+
+        <section class="hero">
+            <div>
+                <h1>One place to run your business</h1>
+                <p>
+                    Overview, KPIs, transactions, and automations — clean and fast.
+                    Each section already works with an API. Next we’ll build real features page-by-page.
+                </p>
+            </div>
+
+            <div class="hero-right">
+                <span class="pill">Accent: #F9E784</span>
+            </div>
+        </section>
+
+        <section class="grid">
+            <a class="tile" href="/overview" aria-label="Go to Business Overview">
+                <div>
+                    <h3 class="title">Business Overview</h3>
+                    <p class="desc">Snapshot totals, counts, and latest activity.</p>
+                </div>
+                <div class="cta">
+                    <span class="badge orange">Open</span>
+                    <span>→</span>
+                </div>
+            </a>
+
+            <a class="tile" href="/kpi" aria-label="Go to KPI Dashboard">
+                <div>
+                    <h3 class="title">KPI Dashboard</h3>
+                    <p class="desc">Income, expense, net, and category performance.</p>
+                </div>
+                <div class="cta">
+                    <span class="badge">Open</span>
+                    <span>→</span>
+                </div>
+            </a>
+
+            <a class="tile" href="/transactions" aria-label="Go to Transactions Hub">
+                <div>
+                    <h3 class="title">Transactions Hub</h3>
+                    <p class="desc">Add, review, and delete transactions (CRUD).</p>
+                </div>
+                <div class="cta">
+                    <span class="badge">Open</span>
+                    <span>→</span>
+                </div>
+            </a>
+
+            <a class="tile" href="/automation" aria-label="Go to Automation Center">
+                <div>
+                    <h3 class="title">Automation Center</h3>
+                    <p class="desc">Create automations, enable/disable, and delete.</p>
+                </div>
+                <div class="cta">
+                    <span class="badge red">Open</span>
+                    <span>→</span>
+                </div>
+            </a>
+        </section>
+
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

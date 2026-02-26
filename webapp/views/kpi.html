@@ -1,0 +1,58 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>KPI Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body data-page="kpi">
+    <div class="container">
+        <header class="topbar">
+            <div class="brand">
+                <span class="dot"></span>
+                <span>Firma</span>
+            </div>
+            <nav class="nav">
+                <a href="/" data-nav="home">Home</a>
+                <a href="/overview" data-nav="overview">Overview</a>
+                <a href="/kpi" data-nav="kpi">KPI</a>
+                <a href="/transactions" data-nav="transactions">Transactions</a>
+                <a href="/automation" data-nav="automation">Automation</a>
+            </nav>
+        </header>
+
+        <section class="hero">
+            <h1>KPI Dashboard</h1>
+            <p>Totals + category breakdown computed from transactions.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Totals</h2>
+            <div id="kpiTotals" class="note">Loading…</div>
+        </section>
+
+        <section class="panel">
+            <h2>By category</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Income</th>
+                        <th>Expense</th>
+                        <th>Net</th>
+                    </tr>
+                </thead>
+                <tbody id="kpiByCategory"></tbody>
+            </table>
+            <p class="note" style="margin-top:10px;">
+                Tip: add transactions in “Transactions Hub” and refresh this page to see KPIs update.
+            </p>
+        </section>
+
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>
