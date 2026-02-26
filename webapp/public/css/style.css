@@ -380,3 +380,98 @@ input, select {
         align-items: flex-start;
     }
 }
+
+/* -------- Visualizations dashboard layout (compact 2-column) -------- */
+
+.container-wide {
+    max-width: 1400px; /* fill more of the screen */
+}
+
+.hero-compact {
+    padding: 18px 0 8px;
+}
+
+.viz-layout {
+    display: grid;
+    grid-template-columns: 420px 1fr; /* left controls, right chart */
+    gap: 16px;
+    align-items: start;
+    margin-top: 10px;
+}
+
+@media (max-width: 1100px) {
+    .viz-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.panel-compact {
+    padding: 14px;
+}
+
+.h2-compact {
+    margin: 0 0 10px;
+    font-size: 16px;
+}
+
+.panel-head-compact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.form-compact {
+    gap: 10px;
+}
+
+.field-compact label {
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.field-compact input,
+.field-compact select {
+    height: 36px;
+    font-size: 13px;
+}
+
+.btn-compact {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+}
+
+.note-compact {
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.table-wrap-compact {
+    max-height: 330px; /* small preview with scroll */
+    overflow: auto;
+    border-radius: 12px;
+}
+
+.table-compact th,
+.table-compact td {
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.chart-wrap {
+    height: calc(100vh - 260px); /* big chart */
+    min-height: 420px;
+}
+
+    .chart-wrap canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+.muted {
+    opacity: 0.7;
+    font-size: 12px;
+}

@@ -1,5 +1,4 @@
-﻿
-const path = require("path");
+﻿const path = require("path");
 const express = require("express");
 const { randomUUID } = require("crypto");
 
@@ -115,9 +114,7 @@ function computeOverview() {
     const activeAutomations = automations.filter((a) => a.enabled).length;
 
     // latest 5 transactions by date desc
-    const latest = [...transactions]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 5);
+    const latest = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
     return {
         stats: {
@@ -137,6 +134,11 @@ app.get("/overview", (_, res) => res.sendFile(path.join(VIEWS_DIR, "overview.htm
 app.get("/kpi", (_, res) => res.sendFile(path.join(VIEWS_DIR, "kpi.html")));
 app.get("/transactions", (_, res) => res.sendFile(path.join(VIEWS_DIR, "transactions.html")));
 app.get("/automation", (_, res) => res.sendFile(path.join(VIEWS_DIR, "automation.html")));
+
+// ✅ NEW PAGE ROUTE
+app.get("/visualizations", (_, res) =>
+    res.sendFile(path.join(VIEWS_DIR, "visualizations.html"))
+);
 
 // --------------------
 // API routes (JSON)

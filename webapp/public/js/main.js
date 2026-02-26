@@ -273,3 +273,347 @@ async function initAutomation() {
         console.error(e);
     }
 })();
+(() => {
+    const page = document.body?.dataset?.page;
+    if (page !== "visualizations") return;
+
+    // HTML ids from the new compact visualizations.html
+    const fileInput = document.getElementById("dataFile") || document.getElementById("xlsFile");
+    const sheetSelect = document.getElementById("sheetSelect");
+    const xCol = document.getElementById("xCol");
+    const yCol = document.getElementById("yCol");
+    const chartType = document.getElementById("chartType");
+    const drawBtn = document.getElementById("drawBtn");
+
+    const previewHead = document.getElementById("previewHead");
+    const previewBody = document.getElementById("previewBody");
+
+    const rowCountEl = document.getElementById("rowCount");     // optional
+    const chartHintEl = document.getElementById("chartHint");   // optional
+
+    const canvas = document.getElementById("chartCanvas");
+
+    let workbook = null;
+    let currentRows = [];
+    let currentFileType = null; // "xlsx" | "csv"
+    let chart = null;
+
+    // ---------- helpers ----------
+    function setEnabled(enabled) {
+        // sheetSelect only relevant for xlsx
+        if (sheetSelect) sheetSelect.disabled = !enabled;
+        xCol.disabled = !enabled;
+        yCol.disabled = !enabled;
+        chartType.disabled = !enabled;
+        drawBtn.disabled = !enabled;
+    }
+
+    function fillSelect(select, options) {
+        select.innerHTML = "";
+        for (const opt of options) {
+            const o = document.createElement("option");
+            o.value = opt;
+            o.textContent = opt;
+            select.appendChild(o);
+        }
+    }
+
+    function renderPreview(rows, maxRows = 12) {
+        previewHead.innerHTML = "";
+        previewBody.innerHTML = "";
+
+        if (!rows || rows.length === 0) return;
+
+        const cols = Object.keys(rows[0] ?? {});
+        const tr = document.createElement("tr");
+        cols.forEach((c) => {
+            const th = document.createElement("th");
+            th.textContent = c;
+            tr.appendChild(th);
+        });
+        previewHead.appendChild(tr);
+
+        rows.slice(0, maxRows).forEach((r) => {
+            const trb = document.createElement("tr");
+            cols.forEach((c) => {
+                const td = document.createElement("td");
+                td.textContent = r[c] ?? "";
+                trb.appendChild(td);
+            });
+            previewBody.appendChild(trb);
+        });
+    }
+
+    function parseNumber(v) {
+        if (typeof v === "number") return v;
+        if (v === null || v === undefined) return null;
+        const s = String(v).trim();
+        if (!s) return null;
+        const n = Number(s.replace(",", "."));
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function getNumericColumns(rows) {
+        if (!rows.length) return [];
+        const cols = Object.keys(rows[0]);
+
+        const isNumericCol = (col) => {
+            let nonEmpty = 0;
+            let numeric = 0;
+            for (const r of rows) {
+                const v = r[col];
+                if (v === "" || v === null || v === undefined) continue;
+                nonEmpty++;
+                const num = parseNumber(v);
+                if (num !== null) numeric++;
+            }
+            return nonEmpty > 0 && numeric / nonEmpty >= 0.7;
+        };
+
+        return cols.filter(isNumericCol);
+    }
+
+    function setMetaUI() {
+        if (rowCountEl) rowCountEl.textContent = currentRows.length ? `${currentRows.length} rows` : "";
+        if (chartHintEl) {
+            const t = chartType.value;
+            if (t === "scatter") chartHintEl.textContent = "Scatter: X and Y must be numeric";
+            else if (t === "hist") chartHintEl.textContent = "Histogram: uses Y only (numeric)";
+            else chartHintEl.textContent = "Bar/Line: Y numeric, X can be text";
+        }
+    }
+
+    // ---------- XLSX ----------
+    function getSheetRows(sheetName) {
+        const sheet = workbook.Sheets[sheetName];
+        return XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    }
+
+    function refreshFromXlsxSheet(sheetName) {
+        currentRows = getSheetRows(sheetName);
+        renderPreview(currentRows);
+
+        const cols = currentRows.length ? Object.keys(currentRows[0]) : [];
+        fillSelect(xCol, cols);
+        fillSelect(yCol, cols);
+
+        // try to auto-select numeric Y
+        const numeric = getNumericColumns(currentRows);
+        if (numeric.length) yCol.value = numeric[0];
+
+        // avoid X = Y if possible
+        if (xCol.value === yCol.value && cols.length > 1) {
+            xCol.value = cols.find((c) => c !== yCol.value) || cols[0];
+        }
+
+        setEnabled(true);
+        setMetaUI();
+    }
+
+    // ---------- CSV ----------
+    function refreshFromCsvRows(rows) {
+        currentRows = rows || [];
+        renderPreview(currentRows);
+
+        const cols = currentRows.length ? Object.keys(currentRows[0]) : [];
+        fillSelect(xCol, cols);
+        fillSelect(yCol, cols);
+
+        // try to auto-select numeric Y
+        const numeric = getNumericColumns(currentRows);
+        if (numeric.length) yCol.value = numeric[0];
+
+        if (xCol.value === yCol.value && cols.length > 1) {
+            xCol.value = cols.find((c) => c !== yCol.value) || cols[0];
+        }
+
+        // sheetSelect disabled for CSV
+        if (sheetSelect) {
+            sheetSelect.innerHTML = "";
+            sheetSelect.disabled = true;
+        }
+
+        setEnabled(true);
+        setMetaUI();
+    }
+
+    // ---------- chart ----------
+    function drawChart(rows) {
+        if (!rows.length) return;
+
+        const xName = xCol.value;
+        const yName = yCol.value;
+        const type = chartType.value;
+
+        if (chart) chart.destroy();
+
+        // Histogram uses Y only
+        if (type === "hist") {
+            const values = [];
+            for (const r of rows) {
+                const yv = parseNumber(r[yName]);
+                if (yv !== null) values.push(yv);
+            }
+            if (!values.length) {
+                toast(`Column "${yName}" has no numeric values to plot.`);
+                return;
+            }
+
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const bins = 10;
+            const step = (max - min) / bins || 1;
+
+            const counts = new Array(bins).fill(0);
+            values.forEach((v) => {
+                const idx = Math.min(bins - 1, Math.floor((v - min) / step));
+                counts[idx]++;
+            });
+
+            const labels = counts.map((_, i) => {
+                const a = (min + i * step).toFixed(2);
+                const b = (min + (i + 1) * step).toFixed(2);
+                return `${a}–${b}`;
+            });
+
+            chart = new Chart(canvas, {
+                type: "bar",
+                data: { labels, datasets: [{ label: `Histogram of ${yName}`, data: counts }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            return;
+        }
+
+        // Scatter needs numeric X and Y
+        if (type === "scatter") {
+            const pts = [];
+            for (const r of rows) {
+                const xv = parseNumber(r[xName]);
+                const yv = parseNumber(r[yName]);
+                if (xv === null || yv === null) continue;
+                pts.push({ x: xv, y: yv });
+            }
+
+            if (!pts.length) {
+                toast(`Scatter needs numeric values in BOTH "${xName}" and "${yName}".`);
+                return;
+            }
+
+            chart = new Chart(canvas, {
+                type: "scatter",
+                data: { datasets: [{ label: `${yName} vs ${xName}`, data: pts }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            return;
+        }
+
+        // Bar/Line: X anything, Y numeric
+        const labels = [];
+        const values = [];
+        for (const r of rows) {
+            const xv = r[xName];
+            const yv = parseNumber(r[yName]);
+            if (xv === "" || xv === null || xv === undefined) continue;
+            if (yv === null) continue;
+            labels.push(String(xv));
+            values.push(yv);
+        }
+
+        if (!values.length) {
+            toast(`Column "${yName}" has no numeric values to plot.`);
+            return;
+        }
+
+        chart = new Chart(canvas, {
+            type: type === "line" ? "line" : "bar",
+            data: { labels, datasets: [{ label: `${yName} vs ${xName}`, data: values }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    // ---------- events ----------
+    if (!fileInput) {
+        toast("File input not found. Check that visualizations.html has id='dataFile'.");
+        return;
+    }
+
+    fileInput.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const name = file.name.toLowerCase();
+        const isCsv = name.endsWith(".csv");
+        const isXlsx = name.endsWith(".xlsx");
+
+        try {
+            if (isCsv) {
+                currentFileType = "csv";
+                const text = await file.text();
+
+                Papa.parse(text, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const rows = (results.data || []).map((r) => {
+                            // normalize nulls
+                            const out = {};
+                            Object.keys(r).forEach((k) => (out[k] = r[k] ?? ""));
+                            return out;
+                        });
+                        refreshFromCsvRows(rows);
+                        toast("CSV loaded.");
+                    },
+                    error: (err) => {
+                        console.error(err);
+                        toast("Failed to parse CSV.");
+                        setEnabled(false);
+                    }
+                });
+
+                return;
+            }
+
+            if (isXlsx) {
+                currentFileType = "xlsx";
+                const buf = await file.arrayBuffer();
+                workbook = XLSX.read(buf, { type: "array" });
+
+                if (sheetSelect) {
+                    fillSelect(sheetSelect, workbook.SheetNames);
+                    sheetSelect.disabled = false;
+                }
+
+                refreshFromXlsxSheet(workbook.SheetNames[0]);
+                toast("Excel loaded.");
+                return;
+            }
+
+            toast("Unsupported file type. Please upload .xlsx or .csv");
+            setEnabled(false);
+        } catch (err) {
+            console.error(err);
+            toast("Failed to read file.");
+            setEnabled(false);
+        }
+    });
+
+    if (sheetSelect) {
+        sheetSelect.addEventListener("change", () => {
+            if (!workbook) return;
+            refreshFromXlsxSheet(sheetSelect.value);
+        });
+    }
+
+    chartType.addEventListener("change", () => setMetaUI());
+
+    drawBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!currentRows.length) return;
+        setMetaUI();
+        drawChart(currentRows);
+    });
+
+    // initial state
+    setEnabled(false);
+    setMetaUI();
+})();
