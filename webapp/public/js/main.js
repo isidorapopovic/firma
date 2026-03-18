@@ -84,6 +84,7 @@ async function loadProducts() {
     }
 }
 
+
 async function initOverview() {
     const outStats = $("#overviewStats");
     const outLatest = $("#latestTransactions");
