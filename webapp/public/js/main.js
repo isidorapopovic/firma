@@ -617,3 +617,48 @@ async function initAutomation() {
     setEnabled(false);
     setMetaUI();
 })();
+
+async function loadProducts() {
+    const container = document.getElementById("products-list");
+    if (!container) return;
+
+    try {
+        const res = await fetch("/api/products");
+        const products = await res.json();
+
+        if (!products.length) {
+            container.innerHTML = "<p>No products found.</p>";
+            return;
+        }
+
+        container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${products.map(p => `
+            <tr>
+              <td>${p.product_id}</td>
+              <td>${p.name}</td>
+              <td>${p.category ?? ""}</td>
+              <td>${p.price}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p>Failed to load products.</p>";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadProducts();
+});
