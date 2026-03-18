@@ -1,5 +1,4 @@
-﻿
-function money(n) {
+﻿function money(n) {
     const x = Number(n);
     if (!Number.isFinite(x)) return "-";
     return x.toLocaleString(undefined, { style: "currency", currency: "EUR" });
@@ -42,39 +41,100 @@ function setActiveNav() {
 // ------------------
 // Overview page
 // ------------------
+async function loadProducts() {
+    const tableBody = document.getElementById("products-table-body");
+    if (!tableBody) return;
+
+    try {
+        const res = await fetch("/api/products");
+        if (!res.ok) {
+            throw new Error(`Failed to fetch products (${res.status})`);
+        }
+
+        const products = await res.json();
+
+        if (!products.length) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8">No products found.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = products.map((product) => `
+            <tr>
+                <td>${product.product_id}</td>
+                <td>${product.name}</td>
+                <td>${product.category ?? ""}</td>
+                <td>${Number(product.price).toFixed(2)}</td>
+                <td>${product.stock_quantity ?? 0}</td>
+                <td>${product.reorder_level ?? 0}</td>
+                <td>${product.supplier ?? ""}</td>
+                <td>${product.status}</td>
+            </tr>
+        `).join("");
+    } catch (err) {
+        console.error("Products load error:", err);
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8">Failed to load products.</td>
+            </tr>
+        `;
+    }
+}
+
 async function initOverview() {
     const outStats = $("#overviewStats");
     const outLatest = $("#latestTransactions");
 
-    const data = await api("/api/overview");
-    const { stats, totals, latestTransactions } = data;
+    try {
+        const data = await api("/api/overview");
+        const { stats, totals, latestTransactions } = data;
 
-    outStats.innerHTML = `
-    <div class="kpi-row">
-      <div class="kpi"><div class="label">Total Income</div><div class="value">${money(totals.income)}</div></div>
-      <div class="kpi"><div class="label">Total Expense</div><div class="value">${money(totals.expense)}</div></div>
-      <div class="kpi"><div class="label">Net</div><div class="value">${money(totals.net)}</div></div>
-    </div>
-    <div style="height:12px"></div>
-    <div class="inline">
-      <span class="badge">Transactions: ${stats.transactionCount}</span>
-      <span class="badge">Active automations: ${stats.activeAutomations}</span>
-    </div>
-  `;
+        outStats.innerHTML = `
+            <div class="kpi-row">
+                <div class="kpi"><div class="label">Total Income</div><div class="value">${money(totals.income)}</div></div>
+                <div class="kpi"><div class="label">Total Expense</div><div class="value">${money(totals.expense)}</div></div>
+                <div class="kpi"><div class="label">Net</div><div class="value">${money(totals.net)}</div></div>
+            </div>
+            <div style="height:12px"></div>
+            <div class="inline">
+                <span class="badge">Transactions: ${stats.transactionCount}</span>
+                <span class="badge">Active automations: ${stats.activeAutomations}</span>
+            </div>
+        `;
 
-    outLatest.innerHTML = latestTransactions
-        .map(
-            (t) => `
-      <tr>
-        <td>${t.date}</td>
-        <td>${t.description}</td>
-        <td>${t.category}</td>
-        <td>${t.type}</td>
-        <td>${money(t.amount)}</td>
-      </tr>
-    `
-        )
-        .join("");
+        if (latestTransactions.length) {
+            outLatest.innerHTML = latestTransactions.map((t) => `
+                <tr>
+                    <td>${t.date}</td>
+                    <td>${t.description}</td>
+                    <td>${t.category}</td>
+                    <td>${t.type}</td>
+                    <td>${money(t.amount)}</td>
+                </tr>
+            `).join("");
+        } else {
+            outLatest.innerHTML = `
+                <tr>
+                    <td colspan="5">No transactions found.</td>
+                </tr>
+            `;
+        }
+    } catch (err) {
+        console.error("Overview load error:", err);
+        if (outStats) outStats.textContent = "Failed to load overview data.";
+        if (outLatest) {
+            outLatest.innerHTML = `
+                <tr>
+                    <td colspan="5">Failed to load transactions.</td>
+                </tr>
+            `;
+        }
+    }
+
+    await loadProducts();
 }
 
 // ------------------
@@ -88,23 +148,23 @@ async function initKpi() {
     const { totals, byCategory } = data;
 
     totalsEl.innerHTML = `
-    <div class="kpi-row">
-      <div class="kpi"><div class="label">Income</div><div class="value">${money(totals.income)}</div></div>
-      <div class="kpi"><div class="label">Expense</div><div class="value">${money(totals.expense)}</div></div>
-      <div class="kpi"><div class="label">Net</div><div class="value">${money(totals.net)}</div></div>
-    </div>
-  `;
+        <div class="kpi-row">
+            <div class="kpi"><div class="label">Income</div><div class="value">${money(totals.income)}</div></div>
+            <div class="kpi"><div class="label">Expense</div><div class="value">${money(totals.expense)}</div></div>
+            <div class="kpi"><div class="label">Net</div><div class="value">${money(totals.net)}</div></div>
+        </div>
+    `;
 
     tableBody.innerHTML = byCategory
         .map(
             (r) => `
-      <tr>
-        <td>${r.category}</td>
-        <td>${money(r.income)}</td>
-        <td>${money(r.expense)}</td>
-        <td>${money(r.net)}</td>
-      </tr>
-    `
+            <tr>
+                <td>${r.category}</td>
+                <td>${money(r.income)}</td>
+                <td>${money(r.expense)}</td>
+                <td>${money(r.net)}</td>
+            </tr>
+        `
         )
         .join("");
 }
@@ -115,24 +175,24 @@ async function initKpi() {
 async function renderTransactions() {
     const tbody = $("#txTableBody");
     const data = await api("/api/transactions");
+
     tbody.innerHTML = data.items
         .map(
             (t) => `
-      <tr>
-        <td>${t.date}</td>
-        <td>${t.description}</td>
-        <td>${t.category}</td>
-        <td>${t.type}</td>
-        <td>${money(t.amount)}</td>
-        <td>
-          <button class="btn danger" data-del-tx="${t.id}">Delete</button>
-        </td>
-      </tr>
-    `
+            <tr>
+                <td>${t.date}</td>
+                <td>${t.description}</td>
+                <td>${t.category}</td>
+                <td>${t.type}</td>
+                <td>${money(t.amount)}</td>
+                <td>
+                    <button class="btn danger" data-del-tx="${t.id}">Delete</button>
+                </td>
+            </tr>
+        `
         )
         .join("");
 
-    // Wire delete
     document.querySelectorAll("[data-del-tx]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const id = btn.getAttribute("data-del-tx");
@@ -185,18 +245,18 @@ async function renderAutomations() {
     tbody.innerHTML = data.items
         .map(
             (a) => `
-      <tr>
-        <td>${a.name}</td>
-        <td>${a.schedule}</td>
-        <td>${a.enabled ? "Enabled" : "Disabled"}</td>
-        <td class="inline">
-          <button class="btn" data-toggle-auto="${a.id}" data-enabled="${a.enabled}">
-            ${a.enabled ? "Disable" : "Enable"}
-          </button>
-          <button class="btn danger" data-del-auto="${a.id}">Delete</button>
-        </td>
-      </tr>
-    `
+            <tr>
+                <td>${a.name}</td>
+                <td>${a.schedule}</td>
+                <td>${a.enabled ? "Enabled" : "Disabled"}</td>
+                <td class="inline">
+                    <button class="btn" data-toggle-auto="${a.id}" data-enabled="${a.enabled}">
+                        ${a.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button class="btn danger" data-del-auto="${a.id}">Delete</button>
+                </td>
+            </tr>
+        `
         )
         .join("");
 
@@ -257,27 +317,12 @@ async function initAutomation() {
 }
 
 // ------------------
-// Boot
+// Visualizations page
 // ------------------
-(async function boot() {
-    setActiveNav();
-
-    const page = document.body.dataset.page;
-    try {
-        if (page === "overview") await initOverview();
-        if (page === "kpi") await initKpi();
-        if (page === "transactions") await initTransactions();
-        if (page === "automation") await initAutomation();
-    } catch (e) {
-        toast(e.message || "Something went wrong");
-        console.error(e);
-    }
-})();
 (() => {
     const page = document.body?.dataset?.page;
     if (page !== "visualizations") return;
 
-    // HTML ids from the new compact visualizations.html
     const fileInput = document.getElementById("dataFile") || document.getElementById("xlsFile");
     const sheetSelect = document.getElementById("sheetSelect");
     const xCol = document.getElementById("xCol");
@@ -288,27 +333,25 @@ async function initAutomation() {
     const previewHead = document.getElementById("previewHead");
     const previewBody = document.getElementById("previewBody");
 
-    const rowCountEl = document.getElementById("rowCount");     // optional
-    const chartHintEl = document.getElementById("chartHint");   // optional
+    const rowCountEl = document.getElementById("rowCount");
+    const chartHintEl = document.getElementById("chartHint");
 
     const canvas = document.getElementById("chartCanvas");
 
     let workbook = null;
     let currentRows = [];
-    let currentFileType = null; // "xlsx" | "csv"
     let chart = null;
 
-    // ---------- helpers ----------
     function setEnabled(enabled) {
-        // sheetSelect only relevant for xlsx
         if (sheetSelect) sheetSelect.disabled = !enabled;
-        xCol.disabled = !enabled;
-        yCol.disabled = !enabled;
-        chartType.disabled = !enabled;
-        drawBtn.disabled = !enabled;
+        if (xCol) xCol.disabled = !enabled;
+        if (yCol) yCol.disabled = !enabled;
+        if (chartType) chartType.disabled = !enabled;
+        if (drawBtn) drawBtn.disabled = !enabled;
     }
 
     function fillSelect(select, options) {
+        if (!select) return;
         select.innerHTML = "";
         for (const opt of options) {
             const o = document.createElement("option");
@@ -319,6 +362,8 @@ async function initAutomation() {
     }
 
     function renderPreview(rows, maxRows = 12) {
+        if (!previewHead || !previewBody) return;
+
         previewHead.innerHTML = "";
         previewBody.innerHTML = "";
 
@@ -326,6 +371,7 @@ async function initAutomation() {
 
         const cols = Object.keys(rows[0] ?? {});
         const tr = document.createElement("tr");
+
         cols.forEach((c) => {
             const th = document.createElement("th");
             th.textContent = c;
@@ -360,6 +406,7 @@ async function initAutomation() {
         const isNumericCol = (col) => {
             let nonEmpty = 0;
             let numeric = 0;
+
             for (const r of rows) {
                 const v = r[col];
                 if (v === "" || v === null || v === undefined) continue;
@@ -367,6 +414,7 @@ async function initAutomation() {
                 const num = parseNumber(v);
                 if (num !== null) numeric++;
             }
+
             return nonEmpty > 0 && numeric / nonEmpty >= 0.7;
         };
 
@@ -374,8 +422,11 @@ async function initAutomation() {
     }
 
     function setMetaUI() {
-        if (rowCountEl) rowCountEl.textContent = currentRows.length ? `${currentRows.length} rows` : "";
-        if (chartHintEl) {
+        if (rowCountEl) {
+            rowCountEl.textContent = currentRows.length ? `${currentRows.length} rows` : "";
+        }
+
+        if (chartHintEl && chartType) {
             const t = chartType.value;
             if (t === "scatter") chartHintEl.textContent = "Scatter: X and Y must be numeric";
             else if (t === "hist") chartHintEl.textContent = "Histogram: uses Y only (numeric)";
@@ -383,7 +434,6 @@ async function initAutomation() {
         }
     }
 
-    // ---------- XLSX ----------
     function getSheetRows(sheetName) {
         const sheet = workbook.Sheets[sheetName];
         return XLSX.utils.sheet_to_json(sheet, { defval: "" });
@@ -397,12 +447,10 @@ async function initAutomation() {
         fillSelect(xCol, cols);
         fillSelect(yCol, cols);
 
-        // try to auto-select numeric Y
         const numeric = getNumericColumns(currentRows);
-        if (numeric.length) yCol.value = numeric[0];
+        if (numeric.length && yCol) yCol.value = numeric[0];
 
-        // avoid X = Y if possible
-        if (xCol.value === yCol.value && cols.length > 1) {
+        if (xCol && yCol && xCol.value === yCol.value && cols.length > 1) {
             xCol.value = cols.find((c) => c !== yCol.value) || cols[0];
         }
 
@@ -410,7 +458,6 @@ async function initAutomation() {
         setMetaUI();
     }
 
-    // ---------- CSV ----------
     function refreshFromCsvRows(rows) {
         currentRows = rows || [];
         renderPreview(currentRows);
@@ -419,15 +466,13 @@ async function initAutomation() {
         fillSelect(xCol, cols);
         fillSelect(yCol, cols);
 
-        // try to auto-select numeric Y
         const numeric = getNumericColumns(currentRows);
-        if (numeric.length) yCol.value = numeric[0];
+        if (numeric.length && yCol) yCol.value = numeric[0];
 
-        if (xCol.value === yCol.value && cols.length > 1) {
+        if (xCol && yCol && xCol.value === yCol.value && cols.length > 1) {
             xCol.value = cols.find((c) => c !== yCol.value) || cols[0];
         }
 
-        // sheetSelect disabled for CSV
         if (sheetSelect) {
             sheetSelect.innerHTML = "";
             sheetSelect.disabled = true;
@@ -437,9 +482,8 @@ async function initAutomation() {
         setMetaUI();
     }
 
-    // ---------- chart ----------
     function drawChart(rows) {
-        if (!rows.length) return;
+        if (!rows.length || !chartType || !canvas || !xCol || !yCol) return;
 
         const xName = xCol.value;
         const yName = yCol.value;
@@ -447,13 +491,13 @@ async function initAutomation() {
 
         if (chart) chart.destroy();
 
-        // Histogram uses Y only
         if (type === "hist") {
             const values = [];
             for (const r of rows) {
                 const yv = parseNumber(r[yName]);
                 if (yv !== null) values.push(yv);
             }
+
             if (!values.length) {
                 toast(`Column "${yName}" has no numeric values to plot.`);
                 return;
@@ -478,13 +522,15 @@ async function initAutomation() {
 
             chart = new Chart(canvas, {
                 type: "bar",
-                data: { labels, datasets: [{ label: `Histogram of ${yName}`, data: counts }] },
+                data: {
+                    labels,
+                    datasets: [{ label: `Histogram of ${yName}`, data: counts }]
+                },
                 options: { responsive: true, maintainAspectRatio: false }
             });
             return;
         }
 
-        // Scatter needs numeric X and Y
         if (type === "scatter") {
             const pts = [];
             for (const r of rows) {
@@ -501,13 +547,14 @@ async function initAutomation() {
 
             chart = new Chart(canvas, {
                 type: "scatter",
-                data: { datasets: [{ label: `${yName} vs ${xName}`, data: pts }] },
+                data: {
+                    datasets: [{ label: `${yName} vs ${xName}`, data: pts }]
+                },
                 options: { responsive: true, maintainAspectRatio: false }
             });
             return;
         }
 
-        // Bar/Line: X anything, Y numeric
         const labels = [];
         const values = [];
         for (const r of rows) {
@@ -526,12 +573,14 @@ async function initAutomation() {
 
         chart = new Chart(canvas, {
             type: type === "line" ? "line" : "bar",
-            data: { labels, datasets: [{ label: `${yName} vs ${xName}`, data: values }] },
+            data: {
+                labels,
+                datasets: [{ label: `${yName} vs ${xName}`, data: values }]
+            },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // ---------- events ----------
     if (!fileInput) {
         toast("File input not found. Check that visualizations.html has id='dataFile'.");
         return;
@@ -547,7 +596,6 @@ async function initAutomation() {
 
         try {
             if (isCsv) {
-                currentFileType = "csv";
                 const text = await file.text();
 
                 Papa.parse(text, {
@@ -555,11 +603,13 @@ async function initAutomation() {
                     skipEmptyLines: true,
                     complete: (results) => {
                         const rows = (results.data || []).map((r) => {
-                            // normalize nulls
                             const out = {};
-                            Object.keys(r).forEach((k) => (out[k] = r[k] ?? ""));
+                            Object.keys(r).forEach((k) => {
+                                out[k] = r[k] ?? "";
+                            });
                             return out;
                         });
+
                         refreshFromCsvRows(rows);
                         toast("CSV loaded.");
                     },
@@ -574,7 +624,6 @@ async function initAutomation() {
             }
 
             if (isXlsx) {
-                currentFileType = "xlsx";
                 const buf = await file.arrayBuffer();
                 workbook = XLSX.read(buf, { type: "array" });
 
@@ -604,61 +653,38 @@ async function initAutomation() {
         });
     }
 
-    chartType.addEventListener("change", () => setMetaUI());
+    if (chartType) {
+        chartType.addEventListener("change", () => setMetaUI());
+    }
 
-    drawBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (!currentRows.length) return;
-        setMetaUI();
-        drawChart(currentRows);
-    });
+    if (drawBtn) {
+        drawBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (!currentRows.length) return;
+            setMetaUI();
+            drawChart(currentRows);
+        });
+    }
 
-    // initial state
     setEnabled(false);
     setMetaUI();
 })();
 
-async function loadProducts() {
-    const container = document.getElementById("products-list");
-    if (!container) return;
+// ------------------
+// Boot
+// ------------------
+(async function boot() {
+    setActiveNav();
+
+    const page = document.body.dataset.page;
 
     try {
-        const res = await fetch("/api/products");
-        const products = await res.json();
-
-        if (!products.length) {
-            container.innerHTML = "<p>No products found.</p>";
-            return;
-        }
-
-        container.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${products.map(p => `
-            <tr>
-              <td>${p.product_id}</td>
-              <td>${p.name}</td>
-              <td>${p.category ?? ""}</td>
-              <td>${p.price}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<p>Failed to load products.</p>";
+        if (page === "overview") await initOverview();
+        if (page === "kpi") await initKpi();
+        if (page === "transactions") await initTransactions();
+        if (page === "automation") await initAutomation();
+    } catch (e) {
+        toast(e.message || "Something went wrong");
+        console.error(e);
     }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    loadProducts();
-});
+})();
