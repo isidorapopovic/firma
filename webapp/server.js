@@ -11,6 +11,8 @@ app.set("trust proxy", 1);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.use("/api", require("./routes/api"));
+
 // Static files from public
 app.use(express.static(path.join(__dirname, "public")));
 
