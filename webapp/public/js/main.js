@@ -31,6 +31,60 @@ async function api(url, opts) {
     return data;
 }
 
+
+async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
+    return r.json();
+}
+
+// ---------- KPI page ----------
+async function loadKpis() {
+    const k = await fetchJSON("/api/kpis");
+
+    // expects elements with these IDs (add them in kpi.html)
+    const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    set("kpiRevenue", `€${k.revenue.toLocaleString()}`);
+    set("kpiCost", `€${k.cost.toLocaleString()}`);
+    set("kpiProfit", `€${k.profit.toLocaleString()}`);
+    set("kpiMargin", `${k.marginPct}%`);
+    set("kpiClients", k.activeClients);
+    set("kpiOpenInv", k.openInvoices);
+    set("kpiOverdue", k.overdueInvoices);
+}
+
+// ---------- Transactions page ----------
+async function loadTransactions() {
+    const rows = await fetchJSON("/api/transactions?n=80");
+
+    // expects a <tbody id="txBody"></tbody> in transactions.html
+    const tbody = document.getElementById("txBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.id}</td>
+      <td>${r.date}</td>
+      <td>${r.type}</td>
+      <td>${r.counterparty}</td>
+      <td style="text-align:right">${(r.amount).toFixed(2)} ${r.currency}</td>
+      <td>${r.status}</td>
+      <td>${r.note}</td>
+    </tr>
+  `).join("");
+}
+
+// Run the right loader depending on page
+document.addEventListener("DOMContentLoaded", () => {
+    const page = document.body.dataset.page; // set in html: <body data-page="kpi">
+    if (page === "kpi") loadKpis().catch(console.error);
+    if (page === "transactions") loadTransactions().catch(console.error);
+});
+
 function setActiveNav() {
     const page = document.body.dataset.page;
     const links = document.querySelectorAll("[data-nav]");

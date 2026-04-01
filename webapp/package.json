@@ -1,13 +1,12 @@
-﻿{
+{
   "name": "firma-webapp",
   "version": "1.0.0",
-  "description": "Landing page + Overview/KPI/Transactions/Automation (Express + HTML/CSS)",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^5.1.0"
   }
 }
