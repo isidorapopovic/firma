@@ -16,6 +16,8 @@ app.set("trust proxy", 1);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// ---- Static assets ----
+// Put CSS/JS/images into webapp/public
 app.use(express.static(path.join(__dirname, "public")));
 
 let transactions = [...seedTransactions];
@@ -217,7 +219,6 @@ app.use((req, res) => {
     res.status(404).send(`Not Found: ${req.originalUrl}`);
 });
 
-// ---- Error handler ----
 app.use((err, req, res, next) => {
     console.error("Server error:", err);
     res.status(500).send("Internal Server Error");
