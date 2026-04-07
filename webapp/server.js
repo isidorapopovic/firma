@@ -81,7 +81,7 @@ function computeByCategory(rows) {
 
 // ---- Pages ----
 // Keep "/" on your existing landing page, or switch it to syncx-landing.html if you want that as the homepage.
-app.get("/", (req, res) => sendView(res, "landing.html"));
+app.get("/", (req, res) => sendView(res, "elvora.html"));
 
 app.get("/landing", (req, res) => sendView(res, "landing.html"));
 app.get("/syncx", (req, res) => sendView(res, "syncx.html"));
@@ -92,6 +92,8 @@ app.get("/kpi", (req, res) => sendView(res, "kpi.html"));
 app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
 app.get("/automation", (req, res) => sendView(res, "automation.html"));
 app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
+
+
 
 // Optional aliases
 app.get("/home", (req, res) => res.redirect("/"));
