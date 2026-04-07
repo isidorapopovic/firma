@@ -57,6 +57,7 @@ function computeByCategory(rows) {
 
     for (const row of rows) {
         const category = row.category || "Uncategorised";
+
         if (!map.has(category)) {
             map.set(category, {
                 category,
@@ -79,13 +80,22 @@ function computeByCategory(rows) {
 }
 
 // ---- Pages ----
+// Keep "/" on your existing landing page, or switch it to syncx-landing.html if you want that as the homepage.
 app.get("/", (req, res) => sendView(res, "landing.html"));
+
 app.get("/landing", (req, res) => sendView(res, "landing.html"));
+app.get("/syncx", (req, res) => sendView(res, "syncx.html"));
+app.get("/colour", (req, res) => sendView(res, "colour.html"));
+
 app.get("/overview", (req, res) => sendView(res, "overview.html"));
 app.get("/kpi", (req, res) => sendView(res, "kpi.html"));
 app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
 app.get("/automation", (req, res) => sendView(res, "automation.html"));
 app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
+
+// Optional aliases
+app.get("/home", (req, res) => res.redirect("/"));
+app.get("/syncx-landing", (req, res) => res.redirect("/syncx"));
 
 // ---- Health ----
 app.get("/health", (req, res) => {
@@ -131,12 +141,17 @@ app.post("/api/transactions", (req, res) => {
     const { date, description, category, type, amount } = req.body;
 
     if (!date || !description || !type || amount === undefined || amount === null || amount === "") {
-        return res.status(400).json({ error: "Date, description, type, and amount are required" });
+        return res.status(400).json({
+            error: "Date, description, type, and amount are required"
+        });
     }
 
     const numericAmount = Number(amount);
+
     if (!Number.isFinite(numericAmount)) {
-        return res.status(400).json({ error: "Amount must be a valid number" });
+        return res.status(400).json({
+            error: "Amount must be a valid number"
+        });
     }
 
     const row = {
@@ -174,7 +189,9 @@ app.post("/api/automations", (req, res) => {
     const { name, schedule } = req.body;
 
     if (!name || !schedule) {
-        return res.status(400).json({ error: "Name and schedule are required" });
+        return res.status(400).json({
+            error: "Name and schedule are required"
+        });
     }
 
     const row = {
@@ -196,7 +213,9 @@ app.patch("/api/automations/:id", (req, res) => {
     }
 
     if (typeof req.body.enabled !== "boolean") {
-        return res.status(400).json({ error: "enabled must be true or false" });
+        return res.status(400).json({
+            error: "enabled must be true or false"
+        });
     }
 
     item.enabled = req.body.enabled;
@@ -219,12 +238,14 @@ app.use((req, res) => {
     res.status(404).send(`Not Found: ${req.originalUrl}`);
 });
 
+// ---- Error handler ----
 app.use((err, req, res, next) => {
     console.error("Server error:", err);
     res.status(500).send("Internal Server Error");
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
 });
