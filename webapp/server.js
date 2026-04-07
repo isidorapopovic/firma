@@ -86,7 +86,7 @@ app.get("/", (req, res) => sendView(res, "landing.html"));
 app.get("/landing", (req, res) => sendView(res, "landing.html"));
 app.get("/syncx", (req, res) => sendView(res, "syncx.html"));
 app.get("/colour", (req, res) => sendView(res, "colour.html"));
-
+app.get("/elvora", (req, res) => sendView(res, "elvora.html"));
 app.get("/overview", (req, res) => sendView(res, "overview.html"));
 app.get("/kpi", (req, res) => sendView(res, "kpi.html"));
 app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
