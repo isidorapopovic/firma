@@ -1,13 +1,16 @@
 // src/routes/csv.js
-const express = require('express');
+import express from 'express';
+import multer from 'multer';
+import { parse } from 'csv-parse';
+import { stringify } from 'csv-stringify';
+import { query } from '../db/index.js';
+
 const router = express.Router();
-const multer = require('multer');
-const { parse } = require('csv-parse');
-const { stringify } = require('csv-stringify');
-const { query } = require('../db/index');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
 // ── Column definitions per entity ─────────────────────────────────────────
 
 const COLUMNS = {
@@ -228,4 +231,4 @@ router.get('/import-history', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,9 +1,9 @@
 // src/routes/invoices.js
-const express = require('express');
-const router = express.Router();
-const { query } = require('../db/index');
-const { body, validationResult } = require('express-validator');
+import express from 'express';
+import { query } from '../db/index.js';
+import { body, validationResult } from 'express-validator';
 
+const router = express.Router();
 function validate(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -216,4 +216,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
