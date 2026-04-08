@@ -78,7 +78,7 @@ app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
 app.get("/automation", (req, res) => sendView(res, "automation.html"));
 app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
 app.get("/finance", (req, res) => sendView(res, "finance.html"));
-
+app.get("/finance-centre", (req, res) => sendView(res, "finance-centre.html"));
 // Optional aliases
 app.get("/home", (req, res) => res.redirect("/"));
 app.get("/syncx-landing", (req, res) => res.redirect("/syncx"));
