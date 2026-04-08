@@ -1,11 +1,9 @@
 // src/routes/bills.js
 import express from 'express';
 import { query } from '../db/index.js';
-
+import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-
 function validate(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
