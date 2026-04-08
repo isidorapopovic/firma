@@ -3,6 +3,17 @@
 -- Neon / PostgreSQL
 -- ============================================================
 
+DROP VIEW IF EXISTS overdue_invoices;
+DROP VIEW IF EXISTS upcoming_bills_view;
+
+DROP TABLE IF EXISTS bills CASCADE;
+DROP TABLE IF EXISTS invoices CASCADE;
+DROP TABLE IF EXISTS recurring_transactions CASCADE;
+DROP TABLE IF EXISTS csv_imports CASCADE;
+
+DROP FUNCTION IF EXISTS refresh_overdue_statuses();
+DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
