@@ -1,10 +1,12 @@
 // src/routes/recurringTransactions.js
 import express from 'express';
-import db from '../db/index.js';
+
 import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
-const { query } = db;
+
+import { query } from '../db/index.js';
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function calcNextDueDate(currentDate, frequency) {
