@@ -1,7 +1,9 @@
 // src/routes/bills.js
-const express = require('express');
+import express from 'express';
+import { query } from '../db/index.js';
+import { body, param, validationResult } from 'express-validator';
+
 const router = express.Router();
-const { query } = require('../db/index');
 const { body, validationResult } = require('express-validator');
 
 function validate(req, res, next) {
@@ -156,4 +158,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
