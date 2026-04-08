@@ -1,9 +1,11 @@
 "use strict";
 
 import path from "path";
+import fs from "fs/promises";
 import express from "express";
 import { fileURLToPath } from "url";
 import { seedTransactions, seedAutomations } from "./data/seed-data.js";
+import { query } from "./db/index.js";
 
 import recurringRoutes from "./routes/recurringTransactions.js";
 import billsRoutes from "./routes/bills.js";
@@ -66,6 +68,22 @@ function computeByCategory(rows) {
     return [...map.values()].sort((a, b) => a.category.localeCompare(b.category));
 }
 
+async function initDatabase() {
+    try {
+        const schemaPath = path.join(__dirname, "db", "schema.sql");
+        const schemaSql = await fs.readFile(schemaPath, "utf8");
+
+        await query(schemaSql);
+        console.log("✅ Database schema initialised");
+
+        await query("SELECT refresh_overdue_statuses();");
+        console.log("✅ Overdue statuses refreshed");
+    } catch (err) {
+        console.error("❌ Database initialisation failed:", err);
+        throw err;
+    }
+}
+
 // ---- Pages ----
 app.get("/", (req, res) => sendView(res, "elvora.html"));
 app.get("/landing", (req, res) => sendView(res, "landing.html"));
@@ -79,7 +97,6 @@ app.get("/automation", (req, res) => sendView(res, "automation.html"));
 app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
 app.get("/finance", (req, res) => sendView(res, "finance.html"));
 app.get("/finance-centre", (req, res) => sendView(res, "finance-centre.html"));
-// Optional aliases
 app.get("/home", (req, res) => res.redirect("/"));
 app.get("/syncx-landing", (req, res) => res.redirect("/syncx"));
 
@@ -201,6 +218,18 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-});
+
+async function startServer() {
+    try {
+        await initDatabase();
+
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+        });
+    } catch (err) {
+        console.error("❌ Server startup aborted");
+        process.exit(1);
+    }
+}
+
+startServer();
