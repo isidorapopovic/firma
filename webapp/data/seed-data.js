@@ -85,3 +85,27 @@ export const seedAutomations = [
         enabled: false
     }
 ];
+export const seedTransactions = [
+    {
+        id: "TX-10001",
+        date: "2026-04-01",
+        description: "Office rent",
+        category: "Rent",
+        type: "expense",
+        amount: 900,
+        recurring: true,
+        recurringFrequency: "monthly",
+        recurringNextDate: "2026-05-01"
+    },
+    {
+        id: "TX-10002",
+        date: "2026-04-03",
+        description: "Client retainer",
+        category: "Sales",
+        type: "income",
+        amount: 2500,
+        recurring: true,
+        recurringFrequency: "monthly",
+        recurringNextDate: "2026-05-03"
+    }
+];

@@ -5,4 +5,9 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL
 });
 
-module.exports = pool;
+// Add this query helper so routes can use it
+async function query(text, params) {
+    return pool.query(text, params);
+}
+
+module.exports = { pool, query };
