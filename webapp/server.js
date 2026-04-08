@@ -3,19 +3,15 @@
 import path from "path";
 import express from "express";
 import { fileURLToPath } from "url";
-import { createRequire } from "module";             // ← fixes require() in ES modules
 import { seedTransactions, seedAutomations } from "./data/seed-data.js";
+
+import recurringRoutes from "./routes/recurringTransactions.js";
+import billsRoutes from "./routes/bills.js";
+import invoicesRoutes from "./routes/invoices.js";
+import csvRoutes from "./routes/csv.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// ── This one line makes require() work inside an ES module file ────────────
-const require = createRequire(import.meta.url);
-
-const recurringRoutes = require('./routes/recurringTransactions');
-const billsRoutes = require('./routes/bills');
-const invoicesRoutes = require('./routes/invoices');
-const csvRoutes = require('./routes/csv');
 
 const app = express();
 
@@ -81,7 +77,7 @@ app.get("/kpi", (req, res) => sendView(res, "kpi.html"));
 app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
 app.get("/automation", (req, res) => sendView(res, "automation.html"));
 app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
-app.get("/finance", (req, res) => sendView(res, "finance.html")); // 🆕 new page for bills/invoices/recurring
+app.get("/finance", (req, res) => sendView(res, "finance.html"));
 
 // Optional aliases
 app.get("/home", (req, res) => res.redirect("/"));
@@ -90,17 +86,11 @@ app.get("/syncx-landing", (req, res) => res.redirect("/syncx"));
 // ---- Health ----
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
-// ================================================================
-// 🆕 NEW API ROUTES (recurring transactions, bills, invoices, csv)
-// ================================================================
-app.use('/api/recurring-transactions', recurringRoutes);
-app.use('/api/bills', billsRoutes);
-app.use('/api/invoices', invoicesRoutes);
-app.use('/api/csv', csvRoutes);
-
-// ================================================================
-// EXISTING API ROUTES (kept exactly as they were)
-// ================================================================
+// ---- New API routes ----
+app.use("/api/recurring-transactions", recurringRoutes);
+app.use("/api/bills", billsRoutes);
+app.use("/api/invoices", invoicesRoutes);
+app.use("/api/csv", csvRoutes);
 
 // ---- Overview API ----
 app.get("/api/overview", (req, res) => {
