@@ -13,6 +13,7 @@ import recurringRoutes from "./routes/recurringTransactions.js";
 import billsRoutes from "./routes/bills.js";
 import invoicesRoutes from "./routes/invoices.js";
 import csvRoutes from "./routes/csv.js";
+import productsRoutes from "./routes/products.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ app.use(express.json());
 
 // Static assets
 app.use(express.static(path.join(__dirname, "public")));
+
 
 // Temporary in-memory seed data
 // Keep this for now so your existing front-end still works
@@ -119,6 +121,7 @@ app.use("/api/recurring-transactions", recurringRoutes);
 app.use("/api/bills", billsRoutes);
 app.use("/api/invoices", invoicesRoutes);
 app.use("/api/csv", csvRoutes);
+app.use("/api/products", productsRoutes);
 
 // Overview API
 app.get("/api/overview", (req, res) => {

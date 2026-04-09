@@ -16,6 +16,7 @@ router.get("/automation", (req, res) => res.render("automation", { title: "Autom
 router.get("/visualizations", (req, res) => res.render("visualizations", { title: "Visualisations" }));
 router.get("/finance", (req, res) => res.render("finance", { title: "Finance" }));
 router.get("/finance-centre", (req, res) => res.render("finance-centre", { title: "Finance Centre" }));
+router.get("/products", (req, res) => res.render("products", { title: "Products" }));
 
 router.get("/home", (req, res) => res.redirect("/"));
 router.get("/syncx-landing", (req, res) => res.redirect("/syncx"));

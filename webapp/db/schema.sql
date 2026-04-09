@@ -210,3 +210,28 @@ VALUES
 ('INV-2026-001', 'Nova Retail', 'billing@novaretail.com', 'Website support and monthly maintenance', 2400.00, 0.00, 'USD', '2026-04-01', '2026-04-14', NULL, 'unpaid', 0.00, 'Net 14 invoice'),
 ('INV-2026-002', 'BluePeak Studio', 'accounts@bluepeakstudio.com', 'Brand asset production and revisions', 1350.00, 0.00, 'USD', '2026-03-28', '2026-04-11', NULL, 'overdue', 0.00, 'Follow-up reminder required')
 ON CONFLICT (invoice_number) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    sku VARCHAR(100) UNIQUE,
+    description TEXT,
+    price NUMERIC(15, 2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+    currency CHAR(3) NOT NULL DEFAULT 'USD',
+    stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
+    category VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
+CREATE TRIGGER trg_products_updated_at
+BEFORE UPDATE ON products
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE INDEX IF NOT EXISTS idx_products_name
+    ON products(name);
+
+CREATE INDEX IF NOT EXISTS idx_products_category
+    ON products(category);
