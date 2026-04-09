@@ -4,9 +4,11 @@ import path from "path";
 import fs from "fs/promises";
 import express from "express";
 import { fileURLToPath } from "url";
+
 import { seedTransactions, seedAutomations } from "./data/seed-data.js";
 import { query } from "./db/index.js";
 
+import pagesRoutes from "./routes/pages.js";
 import recurringRoutes from "./routes/recurringTransactions.js";
 import billsRoutes from "./routes/bills.js";
 import invoicesRoutes from "./routes/invoices.js";
@@ -20,18 +22,20 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
+// View engine
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ---- Static assets ----
+// Static assets
 app.use(express.static(path.join(__dirname, "public")));
 
+// Temporary in-memory seed data
+// Keep this for now so your existing front-end still works
 let transactions = [...seedTransactions];
 let automations = [...seedAutomations];
-
-function sendView(res, filename) {
-    return res.sendFile(path.join(__dirname, "views", filename));
-}
 
 function sortTransactionsNewestFirst(rows) {
     return [...rows].sort((a, b) => {
@@ -44,27 +48,45 @@ function sortTransactionsNewestFirst(rows) {
 function computeTotals(rows) {
     let income = 0;
     let expense = 0;
+
     for (const row of rows) {
         const amount = Number(row.amount) || 0;
+
         if (row.type === "income") income += amount;
         if (row.type === "expense") expense += amount;
     }
-    return { income, expense, net: income - expense };
+
+    return {
+        income,
+        expense,
+        net: income - expense
+    };
 }
 
 function computeByCategory(rows) {
     const map = new Map();
+
     for (const row of rows) {
         const category = row.category || "Uncategorised";
+
         if (!map.has(category)) {
-            map.set(category, { category, income: 0, expense: 0, net: 0 });
+            map.set(category, {
+                category,
+                income: 0,
+                expense: 0,
+                net: 0
+            });
         }
+
         const entry = map.get(category);
         const amount = Number(row.amount) || 0;
+
         if (row.type === "income") entry.income += amount;
         if (row.type === "expense") entry.expense += amount;
+
         entry.net = entry.income - entry.expense;
     }
+
     return [...map.values()].sort((a, b) => a.category.localeCompare(b.category));
 }
 
@@ -84,35 +106,25 @@ async function initDatabase() {
     }
 }
 
-// ---- Pages ----
-app.get("/", (req, res) => sendView(res, "elvora.html"));
-app.get("/landing", (req, res) => sendView(res, "landing.html"));
-app.get("/syncx", (req, res) => sendView(res, "syncx.html"));
-app.get("/colour", (req, res) => sendView(res, "colour.html"));
-app.get("/elvora", (req, res) => sendView(res, "elvora.html"));
-app.get("/overview", (req, res) => sendView(res, "overview.html"));
-app.get("/kpi", (req, res) => sendView(res, "kpi.html"));
-app.get("/transactions", (req, res) => sendView(res, "transactions.html"));
-app.get("/automation", (req, res) => sendView(res, "automation.html"));
-app.get("/visualizations", (req, res) => sendView(res, "visualizations.html"));
-app.get("/finance", (req, res) => sendView(res, "finance.html"));
-app.get("/finance-centre", (req, res) => sendView(res, "finance-centre.html"));
-app.get("/home", (req, res) => res.redirect("/"));
-app.get("/syncx-landing", (req, res) => res.redirect("/syncx"));
+// Page routes
+app.use("/", pagesRoutes);
 
-// ---- Health ----
-app.get("/health", (req, res) => res.status(200).json({ ok: true }));
+// Health
+app.get("/health", (req, res) => {
+    res.status(200).json({ ok: true });
+});
 
-// ---- New API routes ----
+// New API routes
 app.use("/api/recurring-transactions", recurringRoutes);
 app.use("/api/bills", billsRoutes);
 app.use("/api/invoices", invoicesRoutes);
 app.use("/api/csv", csvRoutes);
 
-// ---- Overview API ----
+// Overview API
 app.get("/api/overview", (req, res) => {
     const rows = sortTransactionsNewestFirst(transactions);
     const totals = computeTotals(rows);
+
     res.json({
         stats: {
             transactionCount: rows.length,
@@ -123,15 +135,19 @@ app.get("/api/overview", (req, res) => {
     });
 });
 
-// ---- KPI API ----
+// KPI API
 app.get("/api/kpi", (req, res) => {
     const rows = sortTransactionsNewestFirst(transactions);
     const totals = computeTotals(rows);
     const byCategory = computeByCategory(rows);
-    res.json({ totals, byCategory });
+
+    res.json({
+        totals,
+        byCategory
+    });
 });
 
-// ---- Transactions API ----
+// Transactions API
 app.get("/api/transactions", (req, res) => {
     const rows = sortTransactionsNewestFirst(transactions);
     res.json({ items: rows });
@@ -139,13 +155,21 @@ app.get("/api/transactions", (req, res) => {
 
 app.post("/api/transactions", (req, res) => {
     const { date, description, category, type, amount } = req.body;
+
     if (!date || !description || !type || amount === undefined || amount === null || amount === "") {
-        return res.status(400).json({ error: "Date, description, type, and amount are required" });
+        return res.status(400).json({
+            error: "Date, description, type, and amount are required"
+        });
     }
+
     const numericAmount = Number(amount);
+
     if (!Number.isFinite(numericAmount)) {
-        return res.status(400).json({ error: "Amount must be a valid number" });
+        return res.status(400).json({
+            error: "Amount must be a valid number"
+        });
     }
+
     const row = {
         id: `TX-${10000 + transactions.length + 1}`,
         date,
@@ -154,6 +178,7 @@ app.post("/api/transactions", (req, res) => {
         type: type === "expense" ? "expense" : "income",
         amount: Math.abs(numericAmount)
     };
+
     transactions.unshift(row);
     res.status(201).json(row);
 });
@@ -161,38 +186,56 @@ app.post("/api/transactions", (req, res) => {
 app.delete("/api/transactions/:id", (req, res) => {
     const before = transactions.length;
     transactions = transactions.filter((t) => t.id !== req.params.id);
+
     if (transactions.length === before) {
-        return res.status(404).json({ error: "Transaction not found" });
+        return res.status(404).json({
+            error: "Transaction not found"
+        });
     }
+
     res.json({ ok: true });
 });
 
-// ---- Automations API ----
+// Automations API
 app.get("/api/automations", (req, res) => {
     res.json({ items: automations });
 });
 
 app.post("/api/automations", (req, res) => {
     const { name, schedule } = req.body;
+
     if (!name || !schedule) {
-        return res.status(400).json({ error: "Name and schedule are required" });
+        return res.status(400).json({
+            error: "Name and schedule are required"
+        });
     }
+
     const row = {
         id: `AUTO-${String(automations.length + 1).padStart(3, "0")}`,
         name,
         schedule,
         enabled: true
     };
+
     automations.unshift(row);
     res.status(201).json(row);
 });
 
 app.patch("/api/automations/:id", (req, res) => {
     const item = automations.find((a) => a.id === req.params.id);
-    if (!item) return res.status(404).json({ error: "Automation not found" });
-    if (typeof req.body.enabled !== "boolean") {
-        return res.status(400).json({ error: "enabled must be true or false" });
+
+    if (!item) {
+        return res.status(404).json({
+            error: "Automation not found"
+        });
     }
+
+    if (typeof req.body.enabled !== "boolean") {
+        return res.status(400).json({
+            error: "enabled must be true or false"
+        });
+    }
+
     item.enabled = req.body.enabled;
     res.json(item);
 });
@@ -200,18 +243,22 @@ app.patch("/api/automations/:id", (req, res) => {
 app.delete("/api/automations/:id", (req, res) => {
     const before = automations.length;
     automations = automations.filter((a) => a.id !== req.params.id);
+
     if (automations.length === before) {
-        return res.status(404).json({ error: "Automation not found" });
+        return res.status(404).json({
+            error: "Automation not found"
+        });
     }
+
     res.json({ ok: true });
 });
 
-// ---- 404 ----
+// 404
 app.use((req, res) => {
     res.status(404).send(`Not Found: ${req.originalUrl}`);
 });
 
-// ---- Error handler ----
+// Error handler
 app.use((err, req, res, next) => {
     console.error("Server error:", err);
     res.status(500).send("Internal Server Error");
