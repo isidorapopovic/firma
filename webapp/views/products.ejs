@@ -1,101 +1,144 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Products · Firma</title>
-  <link rel="stylesheet" href="/styles.css" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Products</title>
+    <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">Firma</div>
+<body data-page="products">
+    <aside class="side-nav" aria-label="Main navigation">
+        <div class="side-nav-inner">
+            <div class="side-brand">
+                <span class="dot"></span>
+                <span class="side-brand-text">Firma</span>
+            </div>
 
-      <nav class="nav">
-        <a href="/overview" class="nav-link">Overview</a>
-        <a href="/kpi" class="nav-link">KPI</a>
-        <a href="/transactions" class="nav-link">Transactions</a>
-        <a href="/automation" class="nav-link">Automation</a>
-        <a href="/visualizations" class="nav-link">Visualizations</a>
-        <a href="/products" class="nav-link active">Products</a>
-      </nav>
+            <nav class="side-menu">
+                <a href="/" data-nav="home" class="side-link">
+                    <span class="side-icon">⌂</span>
+                    <span class="side-text">Home</span>
+                </a>
+                <a href="/overview" data-nav="overview" class="side-link">
+                    <span class="side-icon">◫</span>
+                    <span class="side-text">Overview</span>
+                </a>
+                <a href="/kpi" data-nav="kpi" class="side-link">
+                    <span class="side-icon">◩</span>
+                    <span class="side-text">KPI</span>
+                </a>
+                <a href="/transactions" data-nav="transactions" class="side-link">
+                    <span class="side-icon">⇄</span>
+                    <span class="side-text">Transactions</span>
+                </a>
+                <a href="/automation" data-nav="automation" class="side-link">
+                    <span class="side-icon">⚙</span>
+                    <span class="side-text">Automation</span>
+                </a>
+                <a href="/visualizations" data-nav="visualizations" class="side-link">
+                    <span class="side-icon">◔</span>
+                    <span class="side-text">Visualizations</span>
+                </a>
+                <a href="/products" data-nav="products" class="side-link">
+                    <span class="side-icon">▣</span>
+                    <span class="side-text">Products</span>
+                </a>
+            </nav>
+        </div>
     </aside>
 
-    <main class="page-content">
-      <div class="page-header">
-        <h1>Products</h1>
-        <p class="page-subtitle">Manage and review your product catalogue.</p>
-      </div>
+    <main class="page-shell app-page-shell">
+        <div class="container">
+            <section class="hero">
+                <h1>Products</h1>
+                <p>Live product catalogue from the backend API.</p>
+            </section>
 
-      <section class="card">
-        <div id="products-list" class="products-grid">
-          <p>Loading products…</p>
+            <section class="panel">
+                <h2>Product list</h2>
+                <div id="productsNote" class="note">Loading…</div>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>SKU</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Currency</th>
+                            <th>Stock</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTable"></tbody>
+                </table>
+            </section>
+
+            <div id="toast" class="toast" role="status" aria-live="polite"></div>
         </div>
-      </section>
     </main>
-  </div>
 
-  <script>
-    async function loadProducts() {
-      const root = document.getElementById("products-list");
+    <script>
+        async function loadProducts() {
+            const note = document.getElementById("productsNote");
+            const tbody = document.getElementById("productsTable");
 
-      try {
-        const res = await fetch("/api/products");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            try {
+                const res = await fetch("/api/products");
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
 
-        const data = await res.json();
-        const items = Array.isArray(data.items) ? data.items : [];
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
 
-        if (items.length === 0) {
-          root.innerHTML = '<p class="empty-state">No products found.</p>';
-          return;
+                if (!items.length) {
+                    note.textContent = "No products found.";
+                    tbody.innerHTML = "";
+                    return;
+                }
+
+                note.textContent = `${items.length} product${items.length === 1 ? "" : "s"} found.`;
+
+                tbody.innerHTML = items.map((item) => `
+                    <tr>
+                        <td>${escapeHtml(item.name ?? "")}</td>
+                        <td>${escapeHtml(item.sku ?? "—")}</td>
+                        <td>${escapeHtml(item.category ?? "—")}</td>
+                        <td>${formatNumber(item.price)}</td>
+                        <td>${escapeHtml(item.currency ?? "USD")}</td>
+                        <td>${Number(item.stock_quantity ?? 0)}</td>
+                        <td>${item.is_active ? "Active" : "Inactive"}</td>
+                    </tr>
+                `).join("");
+            } catch (err) {
+                console.error(err);
+                note.textContent = "Could not load products.";
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7">Failed to load products.</td>
+                    </tr>
+                `;
+            }
         }
 
-        root.innerHTML = items.map(item => `
-          <article class="product-card">
-            <div class="product-card__header">
-              <h3>${escapeHtml(item.name || "Untitled product")}</h3>
-              <span class="badge">${escapeHtml(item.category || "General")}</span>
-            </div>
+        function formatNumber(value) {
+            const num = Number(value ?? 0);
+            return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+        }
 
-            <p class="product-card__sku">SKU: ${escapeHtml(item.sku || "—")}</p>
-            <p class="product-card__desc">${escapeHtml(item.description || "No description")}</p>
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
 
-            <div class="product-card__meta">
-              <strong>${formatPrice(item.price, item.currency)}</strong>
-              <span>Stock: ${Number(item.stock_quantity ?? 0)}</span>
-            </div>
-          </article>
-        `).join("");
-      } catch (err) {
-        console.error(err);
-        root.innerHTML = '<p class="error-state">Could not load products.</p>';
-      }
-    }
+        loadProducts();
+    </script>
 
-    function formatPrice(price, currency) {
-      const value = Number(price ?? 0);
-      const code = currency || "USD";
-      try {
-        return new Intl.NumberFormat("en-GB", {
-          style: "currency",
-          currency: code
-        }).format(value);
-      } catch {
-        return `${value.toFixed(2)} ${code}`;
-      }
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    loadProducts();
-  </script>
+    <script src="/js/main.js"></script>
 </body>
 </html>
