@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Products</title>
+</head>
+<body>
+  <h1>Products</h1>
+  <div id="products-list">Loading...</div>
+
+  <script>
+    async function loadProducts() {
+      try {
+        const res = await fetch("/api/products");
+        if (!res.ok) throw new Error("Failed to load products");
+
+        const data = await res.json();
+        const root = document.getElementById("products-list");
+
+        if (!data.items || data.items.length === 0) {
+          root.innerHTML = "<p>No products found.</p>";
+          return;
+        }
+
+        root.innerHTML = `
+          <ul>
+            ${data.items.map(item => `
+              <li>
+                <strong>${item.name}</strong> — ${item.price} ${item.currency}
+              </li>
+            `).join("")}
+          </ul>
+        `;
+      } catch (err) {
+        document.getElementById("products-list").innerHTML =
+          "<p>Could not load products.</p>";
+        console.error(err);
+      }
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
