@@ -3,40 +3,96 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Products</title>
+  <title>Products · Firma</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <h1>Products</h1>
-  <div id="products-list">Loading...</div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">Firma</div>
+
+      <nav class="nav">
+        <a href="/overview" class="nav-link">Overview</a>
+        <a href="/kpi" class="nav-link">KPI</a>
+        <a href="/transactions" class="nav-link">Transactions</a>
+        <a href="/automation" class="nav-link">Automation</a>
+        <a href="/visualizations" class="nav-link">Visualizations</a>
+        <a href="/products" class="nav-link active">Products</a>
+      </nav>
+    </aside>
+
+    <main class="page-content">
+      <div class="page-header">
+        <h1>Products</h1>
+        <p class="page-subtitle">Manage and review your product catalogue.</p>
+      </div>
+
+      <section class="card">
+        <div id="products-list" class="products-grid">
+          <p>Loading products…</p>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script>
     async function loadProducts() {
+      const root = document.getElementById("products-list");
+
       try {
         const res = await fetch("/api/products");
-        if (!res.ok) throw new Error("Failed to load products");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-        const root = document.getElementById("products-list");
+        const items = Array.isArray(data.items) ? data.items : [];
 
-        if (!data.items || data.items.length === 0) {
-          root.innerHTML = "<p>No products found.</p>";
+        if (items.length === 0) {
+          root.innerHTML = '<p class="empty-state">No products found.</p>';
           return;
         }
 
-        root.innerHTML = `
-          <ul>
-            ${data.items.map(item => `
-              <li>
-                <strong>${item.name}</strong> — ${item.price} ${item.currency}
-              </li>
-            `).join("")}
-          </ul>
-        `;
+        root.innerHTML = items.map(item => `
+          <article class="product-card">
+            <div class="product-card__header">
+              <h3>${escapeHtml(item.name || "Untitled product")}</h3>
+              <span class="badge">${escapeHtml(item.category || "General")}</span>
+            </div>
+
+            <p class="product-card__sku">SKU: ${escapeHtml(item.sku || "—")}</p>
+            <p class="product-card__desc">${escapeHtml(item.description || "No description")}</p>
+
+            <div class="product-card__meta">
+              <strong>${formatPrice(item.price, item.currency)}</strong>
+              <span>Stock: ${Number(item.stock_quantity ?? 0)}</span>
+            </div>
+          </article>
+        `).join("");
       } catch (err) {
-        document.getElementById("products-list").innerHTML =
-          "<p>Could not load products.</p>";
         console.error(err);
+        root.innerHTML = '<p class="error-state">Could not load products.</p>';
       }
+    }
+
+    function formatPrice(price, currency) {
+      const value = Number(price ?? 0);
+      const code = currency || "USD";
+      try {
+        return new Intl.NumberFormat("en-GB", {
+          style: "currency",
+          currency: code
+        }).format(value);
+      } catch {
+        return `${value.toFixed(2)} ${code}`;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
     loadProducts();
