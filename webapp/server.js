@@ -111,6 +111,7 @@ async function initDatabase() {
 app.use("/", pagesRoutes);
 app.use("/api/operations", operationsRoutes);
 // Operations page
+
 app.get("/operations", async (req, res, next) => {
     try {
         const kpiSql = `
@@ -149,8 +150,8 @@ app.get("/operations", async (req, res, next) => {
                 SELECT
                     COUNT(*) FILTER (
                         WHERE due_date < CURRENT_DATE
-                          AND status IN ('Open', 'Partially Paid', 'Overdue')
-                          AND amount > paid_amount
+                          AND status IN ('unpaid', 'partial', 'overdue', 'sent')
+                          AND amount > amount_paid
                     ) AS overdue_invoices
                 FROM invoices
             ),
@@ -234,12 +235,12 @@ app.get("/operations", async (req, res, next) => {
                 c.id,
                 c.name,
                 COUNT(i.id) AS overdue_invoice_count,
-                SUM(i.amount - i.paid_amount) AS overdue_amount
+                SUM(i.amount - i.amount_paid) AS overdue_amount
             FROM invoices i
             JOIN customers c ON c.id = i.customer_id
             WHERE i.due_date < CURRENT_DATE
-              AND i.amount > i.paid_amount
-              AND i.status IN ('Open', 'Partially Paid', 'Overdue')
+              AND i.amount > i.amount_paid
+              AND i.status IN ('unpaid', 'partial', 'overdue', 'sent')
             GROUP BY c.id, c.name
             ORDER BY overdue_amount DESC
             LIMIT 10;
@@ -293,7 +294,7 @@ app.get("/operations", async (req, res, next) => {
         const inventorySql = `
             SELECT
                 p.id,
-                p.sku_code,
+                COALESCE(p.sku_code, p.sku) AS sku_code,
                 p.name,
                 p.category,
                 p.supplier,
@@ -357,6 +358,8 @@ app.get("/operations", async (req, res, next) => {
         next(err);
     }
 });
+
+
 
 // Health
 app.get("/health", (req, res) => {
