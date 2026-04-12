@@ -235,3 +235,123 @@ CREATE INDEX IF NOT EXISTS idx_products_name
 
 CREATE INDEX IF NOT EXISTS idx_products_category
     ON products(category);
+
+
+
+    -- customers
+create table if not exists customers (
+  id bigserial primary key,
+  name text not null,
+  email text,
+  phone text,
+  credit_limit numeric(12,2) default 0,
+  created_at timestamptz not null default now()
+);
+
+-- products
+create table if not exists products (
+  id bigserial primary key,
+  sku_code text not null unique,
+  name text not null,
+  category text,
+  supplier text,
+  reorder_point integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- inventory
+create table if not exists inventory (
+  product_id bigint primary key references products(id) on delete cascade,
+  current_stock integer not null default 0,
+  allocated_stock integer not null default 0,
+  last_movement_at timestamptz
+);
+
+-- orders
+create table if not exists orders (
+  id bigserial primary key,
+  order_number text not null unique,
+  customer_id bigint not null references customers(id),
+  order_date date not null,
+  requested_delivery_date date,
+  status text not null check (
+    status in (
+      'New',
+      'Approved',
+      'Picking',
+      'Packed',
+      'Out for delivery',
+      'Delivered',
+      'Partially delivered',
+      'Blocked',
+      'Cancelled'
+    )
+  ),
+  payment_status text not null default 'Unpaid' check (
+    payment_status in ('Unpaid', 'Partially Paid', 'Paid', 'Overdue')
+  ),
+  fulfilment_status text not null default 'Unallocated' check (
+    fulfilment_status in ('Unallocated', 'Allocated', 'Partially Fulfilled', 'Fulfilled', 'Issue')
+  ),
+  assigned_driver_or_route text,
+  notes text,
+  total_value numeric(12,2) not null default 0,
+  issue_count integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- order_items
+create table if not exists order_items (
+  id bigserial primary key,
+  order_id bigint not null references orders(id) on delete cascade,
+  product_id bigint not null references products(id),
+  qty_ordered integer not null,
+  qty_shipped integer not null default 0,
+  unit_price numeric(12,2) not null default 0
+);
+
+-- deliveries
+create table if not exists deliveries (
+  id bigserial primary key,
+  order_id bigint not null references orders(id) on delete cascade,
+  scheduled_date date not null,
+  delivered_at timestamptz,
+  status text not null check (
+    status in ('Scheduled', 'In Progress', 'Delivered', 'Delayed', 'Failed')
+  ),
+  driver_name text,
+  route_name text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+-- invoices
+create table if not exists invoices (
+  id bigserial primary key,
+  order_id bigint references orders(id),
+  customer_id bigint not null references customers(id),
+  invoice_number text not null unique,
+  amount numeric(12,2) not null,
+  due_date date not null,
+  paid_amount numeric(12,2) not null default 0,
+  status text not null default 'Open' check (
+    status in ('Open', 'Partially Paid', 'Paid', 'Overdue')
+  ),
+  created_at timestamptz not null default now()
+);
+
+-- payments
+create table if not exists payments (
+  id bigserial primary key,
+  customer_id bigint not null references customers(id),
+  invoice_id bigint references invoices(id),
+  amount numeric(12,2) not null,
+  paid_at timestamptz not null default now(),
+  method text
+);
+
+create index if not exists idx_orders_requested_delivery_date on orders(requested_delivery_date);
+create index if not exists idx_orders_status on orders(status);
+create index if not exists idx_deliveries_status on deliveries(status);
+create index if not exists idx_invoices_due_date on invoices(due_date);
+create index if not exists idx_payments_paid_at on payments(paid_at);
