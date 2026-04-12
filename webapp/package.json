@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "seed:db": "node db/seed.js"
   },
   "dependencies": {
     "csv-parse": "^6.2.1",
