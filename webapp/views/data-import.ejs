@@ -1,0 +1,303 @@
+<!-- webapp/views/data-import.ejs -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= title %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; line-height: 1.4; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input, select, textarea, button { width: 100%; padding: 10px; margin-bottom: 12px; box-sizing: border-box; }
+    button { cursor: pointer; }
+    .muted { color: #666; font-size: 14px; }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #f2f2f2; margin-right: 6px; margin-bottom: 6px; }
+    .row-ok { background: #f2fff2; }
+    .row-bad { background: #fff2f2; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; font-size: 14px; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #fafafa; padding: 10px; border: 1px solid #eee; }
+    .hidden { display: none; }
+    .actions { display: flex; gap: 12px; }
+    .actions button, .actions a { flex: 1; }
+    .success { color: #166534; }
+    .error { color: #991b1b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Data Import</h1>
+    <p class="muted">Upload CSV/XLSX, auto-detect columns, preview mapped data, import into PostgreSQL, or enter records manually.</p>
+
+    <div class="card">
+      <label for="entity">Entity</label>
+      <select id="entity">
+        <% entities.forEach(entity => { %>
+          <option value="<%= entity.entity %>" <%= selectedEntity === entity.entity ? 'selected' : '' %>>
+            <%= entity.label %>
+          </option>
+        <% }) %>
+      </select>
+
+      <div id="schemaInfo"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Upload file</h2>
+        <label for="file">CSV or XLSX file</label>
+        <input type="file" id="file" accept=".csv,.xlsx,.xls" />
+
+        <div class="actions">
+          <button id="previewBtn" type="button">Preview upload</button>
+          <button id="importBtn" type="button">Import file</button>
+        </div>
+
+        <div class="actions">
+          <a id="templateLink" href="#" download>Download template</a>
+        </div>
+
+        <div id="uploadResult"></div>
+      </div>
+
+      <div class="card">
+        <h2>Manual entry</h2>
+        <form id="manualForm"></form>
+        <button id="manualSubmit" type="button">Save manual record</button>
+        <div id="manualResult"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Preview</h2>
+      <div id="previewArea" class="muted">No preview yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Import history</h2>
+      <button id="refreshHistory" type="button">Refresh history</button>
+      <div id="historyArea" class="muted">No history loaded.</div>
+    </div>
+  </div>
+
+  <script>
+    const entityEl = document.getElementById('entity');
+    const schemaInfoEl = document.getElementById('schemaInfo');
+    const manualFormEl = document.getElementById('manualForm');
+    const fileEl = document.getElementById('file');
+    const previewBtn = document.getElementById('previewBtn');
+    const importBtn = document.getElementById('importBtn');
+    const previewArea = document.getElementById('previewArea');
+    const uploadResult = document.getElementById('uploadResult');
+    const manualSubmit = document.getElementById('manualSubmit');
+    const manualResult = document.getElementById('manualResult');
+    const templateLink = document.getElementById('templateLink');
+    const refreshHistoryBtn = document.getElementById('refreshHistory');
+    const historyArea = document.getElementById('historyArea');
+
+    async function loadSchema() {
+      const entity = entityEl.value;
+      const res = await fetch(`/imports/schema/${entity}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        schemaInfoEl.innerHTML = '<p class="error">' + (data.error || 'Failed to load schema') + '</p>';
+        return;
+      }
+
+      const schema = data.schema;
+      templateLink.href = `/imports/template/${entity}`;
+
+      schemaInfoEl.innerHTML = `
+        <p><strong>${schema.label}</strong></p>
+        <p><strong>Required:</strong> ${schema.required.map(x => `<span class="pill">${x}</span>`).join(' ')}</p>
+        <p><strong>Optional:</strong> ${schema.optional.map(x => `<span class="pill">${x}</span>`).join(' ')}</p>
+      `;
+
+      renderManualForm(schema);
+    }
+
+    function inputType(field) {
+      if (field.includes('date')) return 'date';
+      if (['amount', 'tax_amount', 'unit_price', 'discount', 'tax_rate', 'credit_limit', 'stock_quantity', 'quantity'].includes(field)) return 'number';
+      return 'text';
+    }
+
+    function renderManualForm(schema) {
+      const fields = [...schema.required, ...schema.optional];
+      manualFormEl.innerHTML = fields.map(field => `
+        <label for="field_${field}">
+          ${field}${schema.required.includes(field) ? ' *' : ''}
+        </label>
+        <input id="field_${field}" name="${field}" type="${inputType(field)}" />
+      `).join('');
+    }
+
+    function buildFormData() {
+      const file = fileEl.files[0];
+      const fd = new FormData();
+      fd.append('file', file);
+      return fd;
+    }
+
+    async function previewUpload() {
+      const entity = entityEl.value;
+      const file = fileEl.files[0];
+      if (!file) {
+        uploadResult.innerHTML = '<p class="error">Please choose a file first.</p>';
+        return;
+      }
+
+      uploadResult.innerHTML = '<p class="muted">Preparing preview...</p>';
+
+      const res = await fetch(`/imports/preview/${entity}`, {
+        method: 'POST',
+        body: buildFormData()
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        uploadResult.innerHTML = '<p class="error">' + (data.error || 'Preview failed') + '</p>';
+        previewArea.innerHTML = '<p class="error">Preview failed.</p>';
+        return;
+      }
+
+      uploadResult.innerHTML = `
+        <p class="success">Preview ready.</p>
+        <p>Total rows: ${data.totalRows}</p>
+        <p>Valid rows: ${data.validRows}</p>
+        <p>Invalid rows: ${data.invalidRows}</p>
+      `;
+
+      let mappingHtml = '<h3>Detected column mapping</h3><ul>';
+      for (const [field, source] of Object.entries(data.detectedMapping || {})) {
+        mappingHtml += `<li><strong>${field}</strong> ← ${source}</li>`;
+      }
+      mappingHtml += '</ul>';
+
+      let rowsHtml = '<h3>Preview rows</h3><table><thead><tr><th>Row</th><th>Status</th><th>Mapped</th><th>Error</th></tr></thead><tbody>';
+      for (const row of data.preview) {
+        rowsHtml += `
+          <tr class="${row.status === 'valid' ? 'row-ok' : 'row-bad'}">
+            <td>${row.row}</td>
+            <td>${row.status}</td>
+            <td><pre>${JSON.stringify(row.mapped, null, 2)}</pre></td>
+            <td>${row.error || ''}</td>
+          </tr>
+        `;
+      }
+      rowsHtml += '</tbody></table>';
+
+      previewArea.innerHTML = mappingHtml + rowsHtml;
+    }
+
+    async function importUpload() {
+      const entity = entityEl.value;
+      const file = fileEl.files[0];
+      if (!file) {
+        uploadResult.innerHTML = '<p class="error">Please choose a file first.</p>';
+        return;
+      }
+
+      uploadResult.innerHTML = '<p class="muted">Importing file...</p>';
+
+      const res = await fetch(`/imports/import/${entity}`, {
+        method: 'POST',
+        body: buildFormData()
+      });
+
+      const data = await res.json();
+
+      if (!res.ok && res.status !== 207 && res.status !== 422) {
+        uploadResult.innerHTML = '<p class="error">' + (data.error || 'Import failed') + '</p>';
+        return;
+      }
+
+      uploadResult.innerHTML = `
+        <p class="${data.failed ? 'error' : 'success'}">Import finished.</p>
+        <p>Total: ${data.total}</p>
+        <p>Imported: ${data.imported}</p>
+        <p>Failed: ${data.failed}</p>
+        <pre>${JSON.stringify(data.errors || [], null, 2)}</pre>
+      `;
+
+      loadHistory();
+    }
+
+    async function submitManual() {
+      const entity = entityEl.value;
+      const inputs = manualFormEl.querySelectorAll('input');
+      const payload = {};
+
+      inputs.forEach(input => {
+        payload[input.name] = input.value;
+      });
+
+      manualResult.innerHTML = '<p class="muted">Saving...</p>';
+
+      const res = await fetch(`/imports/manual/${entity}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        manualResult.innerHTML = '<p class="error">' + (data.error || 'Manual save failed') + '</p>';
+        return;
+      }
+
+      manualResult.innerHTML = '<p class="success">' + data.message + '</p>';
+      manualFormEl.reset();
+      loadHistory();
+    }
+
+    async function loadHistory() {
+      const res = await fetch('/imports/history');
+      const data = await res.json();
+
+      if (!res.ok) {
+        historyArea.innerHTML = '<p class="error">' + (data.error || 'Failed to load history') + '</p>';
+        return;
+      }
+
+      if (!data.data || !data.data.length) {
+        historyArea.innerHTML = '<p class="muted">No imports yet.</p>';
+        return;
+      }
+
+      let html = '<table><thead><tr><th>When</th><th>File</th><th>Entity</th><th>Total</th><th>Imported</th><th>Failed</th></tr></thead><tbody>';
+      for (const row of data.data) {
+        html += `
+          <tr>
+            <td>${row.imported_at || ''}</td>
+            <td>${row.filename || ''}</td>
+            <td>${row.entity_type || ''}</td>
+            <td>${row.rows_total || 0}</td>
+            <td>${row.rows_imported || 0}</td>
+            <td>${row.rows_failed || 0}</td>
+          </tr>
+        `;
+      }
+      html += '</tbody></table>';
+
+      historyArea.innerHTML = html;
+    }
+
+    entityEl.addEventListener('change', loadSchema);
+    previewBtn.addEventListener('click', previewUpload);
+    importBtn.addEventListener('click', importUpload);
+    manualSubmit.addEventListener('click', submitManual);
+    refreshHistoryBtn.addEventListener('click', loadHistory);
+
+    loadSchema();
+    loadHistory();
+  </script>
+</body>
+</html>

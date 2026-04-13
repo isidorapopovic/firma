@@ -2,6 +2,7 @@
 -- FIRMA - Full Database Schema
 -- Neon / PostgreSQL
 -- UUID-safe version
+-- Updated for unified Data Import page
 -- ============================================================
 
 DROP VIEW IF EXISTS overdue_invoices;
@@ -140,6 +141,12 @@ CREATE INDEX idx_products_name
 CREATE INDEX idx_products_category
     ON products(category);
 
+CREATE INDEX idx_products_sku
+    ON products(sku);
+
+CREATE INDEX idx_products_sku_code
+    ON products(sku_code);
+
 -- ============================================================
 -- CUSTOMERS
 -- ============================================================
@@ -148,12 +155,25 @@ CREATE TABLE customers (
     name TEXT NOT NULL,
     email TEXT,
     phone TEXT,
-    credit_limit NUMERIC(12,2) DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    address TEXT,
+    city TEXT,
+    country TEXT,
+    credit_limit NUMERIC(12,2) NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DROP TRIGGER IF EXISTS trg_customers_updated_at ON customers;
+CREATE TRIGGER trg_customers_updated_at
+BEFORE UPDATE ON customers
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE INDEX idx_customers_name
     ON customers(name);
+
+CREATE INDEX idx_customers_email
+    ON customers(email);
 
 -- ============================================================
 -- ORDERS
@@ -190,6 +210,9 @@ CREATE TABLE orders (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX idx_orders_order_number
+    ON orders(order_number);
+
 CREATE INDEX idx_orders_requested_delivery_date
     ON orders(requested_delivery_date);
 
@@ -218,7 +241,8 @@ CREATE TABLE order_items (
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     qty_ordered INTEGER NOT NULL CHECK (qty_ordered >= 0),
     qty_shipped INTEGER NOT NULL DEFAULT 0 CHECK (qty_shipped >= 0),
-    unit_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (unit_price >= 0)
+    unit_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (unit_price >= 0),
+    notes TEXT
 );
 
 CREATE INDEX idx_order_items_order_id
@@ -296,6 +320,9 @@ CREATE INDEX idx_invoices_customer_id
 CREATE INDEX idx_invoices_order_id
     ON invoices(order_id);
 
+CREATE INDEX idx_invoices_invoice_number
+    ON invoices(invoice_number);
+
 -- ============================================================
 -- PAYMENTS
 -- ============================================================
@@ -318,13 +345,21 @@ CREATE INDEX idx_payments_invoice_id
     ON payments(invoice_id);
 
 -- ============================================================
--- CSV IMPORT LOG
+-- CSV / FILE IMPORT LOG
 -- ============================================================
 CREATE TABLE csv_imports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     filename VARCHAR(255) NOT NULL,
     entity_type VARCHAR(50) NOT NULL CHECK (
-        entity_type IN ('recurring_transactions', 'bills', 'invoices')
+        entity_type IN (
+            'recurring_transactions',
+            'bills',
+            'invoices',
+            'customers',
+            'products',
+            'orders',
+            'order_items'
+        )
     ),
     rows_total INTEGER NOT NULL DEFAULT 0,
     rows_imported INTEGER NOT NULL DEFAULT 0,
@@ -332,6 +367,12 @@ CREATE TABLE csv_imports (
     errors JSONB,
     imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_csv_imports_entity_type
+    ON csv_imports(entity_type);
+
+CREATE INDEX idx_csv_imports_imported_at
+    ON csv_imports(imported_at DESC);
 
 -- ============================================================
 -- Views
@@ -387,11 +428,11 @@ VALUES
 ('Adobe Creative Cloud', 'Creative Cloud team plan', 96.00, 'USD', '2026-04-20', NULL, 'unpaid', 'Software', 'Adobe', 'Monthly design subscription')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO customers (name, email, phone, credit_limit)
+INSERT INTO customers (name, email, phone, address, city, country, credit_limit, notes)
 VALUES
-('Delta Foods', 'ops@deltafoods.rs', '+38160000001', 5000),
-('Nova Market', 'buying@novamarket.rs', '+38160000002', 3000),
-('Fresh Trade', 'accounts@freshtrade.rs', '+38160000003', 7000)
+('Delta Foods', 'ops@deltafoods.rs', '+38160000001', 'Industrial Zone 1', 'Belgrade', 'Serbia', 5000, NULL),
+('Nova Market', 'buying@novamarket.rs', '+38160000002', 'Market Street 12', 'Novi Sad', 'Serbia', 3000, NULL),
+('Fresh Trade', 'accounts@freshtrade.rs', '+38160000003', 'Warehouse Road 7', 'Niš', 'Serbia', 7000, NULL)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO products (name, sku, sku_code, description, price, currency, stock_quantity, category, supplier, reorder_point, is_active)
@@ -478,18 +519,18 @@ FROM (
 JOIN customers c ON c.name = seed.customer_name
 ON CONFLICT (order_number) DO NOTHING;
 
-INSERT INTO order_items (order_id, product_id, qty_ordered, qty_shipped, unit_price)
-SELECT o.id, p.id, seed.qty_ordered, seed.qty_shipped, seed.unit_price
+INSERT INTO order_items (order_id, product_id, qty_ordered, qty_shipped, unit_price, notes)
+SELECT o.id, p.id, seed.qty_ordered, seed.qty_shipped, seed.unit_price, seed.notes
 FROM (
     VALUES
-    ('ORD-1001', 'SKU-001', 20, 20, 6.00),
-    ('ORD-1001', 'SKU-002', 10, 10, 36.00),
-    ('ORD-1002', 'SKU-001', 30, 20, 6.00),
-    ('ORD-1002', 'SKU-003', 15, 5, 22.00),
-    ('ORD-1003', 'SKU-004', 12, 12, 25.00),
-    ('ORD-1004', 'SKU-002', 25, 0, 50.00),
-    ('ORD-1005', 'SKU-005', 14, 0, 15.00)
-) AS seed(order_number, sku, qty_ordered, qty_shipped, unit_price)
+    ('ORD-1001', 'SKU-001', 20, 20, 6.00, NULL),
+    ('ORD-1001', 'SKU-002', 10, 10, 36.00, NULL),
+    ('ORD-1002', 'SKU-001', 30, 20, 6.00, 'Partial shipment'),
+    ('ORD-1002', 'SKU-003', 15, 5, 22.00, 'Stock shortage'),
+    ('ORD-1003', 'SKU-004', 12, 12, 25.00, NULL),
+    ('ORD-1004', 'SKU-002', 25, 0, 50.00, 'Blocked order'),
+    ('ORD-1005', 'SKU-005', 14, 0, 15.00, 'Awaiting allocation')
+) AS seed(order_number, sku, qty_ordered, qty_shipped, unit_price, notes)
 JOIN orders o ON o.order_number = seed.order_number
 JOIN products p ON p.sku = seed.sku
 ON CONFLICT DO NOTHING;
