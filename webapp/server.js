@@ -15,6 +15,7 @@ import invoicesRoutes from "./routes/invoices.js";
 import csvRoutes from "./routes/csv.js";
 import productsRoutes from "./routes/products.js";
 import operationsRoutes from "./routes/operations.js";
+import importsRoutes from "./routes/imports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,6 +111,7 @@ async function initDatabase() {
 // Page routes
 app.use("/", pagesRoutes);
 app.use("/api/operations", operationsRoutes);
+app.use("/imports", importsRoutes);
 // Operations page
 
 app.get("/operations", async (req, res, next) => {

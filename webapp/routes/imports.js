@@ -117,13 +117,14 @@ async function logImport({ filename, entity, total, imported, failed, errors }) 
     );
 }
 
-router.get('/', async (req, res) => {
-    res.render('data-import', {
-        title: 'Data Import',
+router.get("/", async (req, res) => {
+    res.render("data-import", {
+        title: "Data Import",
         entities: Object.values(IMPORT_SCHEMAS),
-        selectedEntity: req.query.entity || 'customers'
+        selectedEntity: req.query.entity || "customers"
     });
 });
+
 
 router.get('/schema/:entity', async (req, res) => {
     const schema = getSchema(req.params.entity);
